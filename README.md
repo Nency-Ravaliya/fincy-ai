@@ -22,6 +22,27 @@ The application is built using a modern microservices architecture deployed on K
 - **Message Queue**: RabbitMQ for asynchronous processing
 - **Cache**: Redis for performance optimization
 
+## Detailed Project Description
+
+1. **AI-Driven Content Generation**: Developed an AI-driven content generation platform using Azure OpenAI services. The platform leverages GPT-4 models to generate high-quality content for various social media platforms.
+2. **Scalable Cloud Infrastructure**: Implemented a scalable cloud infrastructure for the content generation platform using Azure services. The infrastructure supports high availability and fault tolerance.
+3. **CI/CD Pipeline**: Established a CI/CD pipeline for the content generation platform to automate the build, test, and deployment processes. Utilized Azure DevOps for continuous integration and delivery.
+4. **Azure Cognitive Services Integration**: Integrated Azure Cognitive Services for enhanced content analysis and sentiment detection.
+5. **Content Generation**: Integrated Azure OpenAI to generate content based on user prompts.
+6. **Platform-Specific Formatting**: Customized content generation to fit the style and format of different platforms like Twitter, LinkedIn, Facebook, Instagram, and WhatsApp.
+7. **User Interface**: Developed a user-friendly interface using React and Tailwind CSS to allow users to input prompts and view generated content.
+8. **Error Handling**: Implemented robust error handling to manage API errors and provide feedback to users.
+9. **Deployment**: Deployed the application on Azure for high availability and scalability.
+10. **Impact**: Cut content creation time by 70%, ensured high availability, and maintained consistent formatting across platforms.
+
+## Tech Stack
+
+- **Languages**: Java, JavaScript, Python, HTML, CSS, SQL, C, C++
+- **Strongest Area**: Problem Solving, System Design, Data Structures, Algorithms, OOPs, Databases, Networking
+- **Frameworks**: Java Spring, Maven, Gradle, Flask, Node.js, React
+- **Tools**: Spring Tool Suite, PostgreSQL, Git, Terraform, MySQL, Postman, DBMS
+- **Cloud**: Helm, Kubernetes, AWS, Azure DevOps, OpenShift Container Platform
+
 ## Getting Started
 
 ### Prerequisites
