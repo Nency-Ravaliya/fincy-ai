@@ -1,0 +1,54 @@
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: 'fincy-ai-variables'
+
+stages:
+  - stage: Build
+    displayName: 'Build stage'
+    jobs:
+      - job: Build
+        displayName: 'Build'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '18.x'
+            displayName: 'Install Node.js'
+
+          - script: |
+              npm install
+              npm run build
+            displayName: 'npm install and build'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: 'dist'
+              ArtifactName: 'dist'
+              publishLocation: 'Container'
+
+  - stage: Deploy
+    displayName: 'Deploy stage'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: Deploy
+        displayName: 'Deploy to Azure Web App'
+        steps:
+          - task: DownloadBuildArtifacts@0
+            inputs:
+              buildType: 'current'
+              downloadType: 'single'
+              artifactName: 'dist'
+              downloadPath: '$(System.ArtifactsDirectory)'
+
+          - task: AzureWebApp@1
+            inputs:
+              azureSubscription: '$(AZURE_SUBSCRIPTION)'
+              appType: 'webApp'
+              appName: '$(AZURE_WEBAPP_NAME)'
+              package: '$(System.ArtifactsDirectory)/dist'
+              deploymentMethod: 'auto' 
