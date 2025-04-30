@@ -21,7 +21,6 @@ function App() {
 
     const {
       data: { subscription },
-
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) {
@@ -37,29 +36,38 @@ function App() {
 
   const checkOnboardingStatus = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // First try to get existing profile
+      const { data: profiles, error: fetchError } = await supabase
         .from('profiles')
         .select('onboarding_completed')
         .eq('user_id', userId)
-        .single();
+        .limit(1);
 
-      if (error) {
-        console.error('Error checking onboarding status:', error);
-        // If no profile exists, create one
-        if (error.code === 'PGRST116') {
-          await supabase
-            .from('profiles')
-            .insert({
-              user_id: userId,
-              onboarding_completed: false,
-              message_count: 0,
-              is_subscribed: false
-            });
-        }
-        setOnboardingCompleted(false);
-      } else {
-        setOnboardingCompleted(data?.onboarding_completed || false);
+      if (fetchError) {
+        throw fetchError;
       }
+
+      // If profile exists, use it
+      if (profiles && profiles.length > 0) {
+        setOnboardingCompleted(profiles[0].onboarding_completed || false);
+        return;
+      }
+
+      // If no profile exists, create one
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: userId,
+          onboarding_completed: false,
+          message_count: 0,
+          is_subscribed: false
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      setOnboardingCompleted(false);
     } catch (error) {
       console.error('Error in checkOnboardingStatus:', error);
       setOnboardingCompleted(false);

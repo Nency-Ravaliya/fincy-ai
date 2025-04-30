@@ -1,1 +1,0 @@
-# fincy-ai-webxela
