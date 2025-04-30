@@ -7,15 +7,21 @@ pool:
 variables:
 - name: AZURE_SUBSCRIPTION
   value: 'b127d0c6-3b4e-48e9-b991-dc8522af2d0f'
-- name: AZURE_WEBAPP_NAME
+- name: AZURE_CONTAINER_REGISTRY
+  value: 'fincyairegistry'
+- name: DOCKER_IMAGE_NAME
   value: 'fincy-ai'
+- name: KUBERNETES_NAMESPACE
+  value: 'fincy-ai-prod'
+- name: KUBERNETES_CLUSTER_NAME
+  value: 'fincy-ai-cluster'
 
 stages:
 - stage: Build
-  displayName: 'Build stage'
+  displayName: 'Build and Containerize'
   jobs:
   - job: Build
-    displayName: 'Build'
+    displayName: 'Build and Push Container'
     steps:
     - task: NodeTool@0
       inputs:
@@ -25,30 +31,33 @@ stages:
         npm install
         npm run build
       displayName: 'npm install and build'
-    - task: PublishBuildArtifacts@1
+    - task: Docker@2
       inputs:
-        PathtoPublish: 'dist'
-        ArtifactName: 'dist'
-        publishLocation: 'Container'
+        command: 'buildAndPush'
+        repository: '$(DOCKER_IMAGE_NAME)'
+        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+        containerRegistry: '$(AZURE_CONTAINER_REGISTRY)'
+        tags: |
+          $(Build.BuildId)
+          latest
 
 - stage: Deploy
-  displayName: 'Deploy stage'
+  displayName: 'Deploy to Kubernetes'
   dependsOn: Build
   condition: succeeded()
   jobs:
   - job: Deploy
-    displayName: 'Deploy to Azure Web App'
+    displayName: 'Deploy to AKS'
     steps:
-    - task: DownloadBuildArtifacts@0
+    - task: Kubernetes@1
       inputs:
-        buildType: 'current'
-        downloadType: 'single'
-        artifactName: 'dist'
-        downloadPath: '$(System.ArtifactsDirectory)'
-    - task: AzureWebApp@1
-      inputs:
+        connectionType: 'Azure Resource Manager'
         azureSubscription: '$(AZURE_SUBSCRIPTION)'
-        appType: 'webApp'
-        appName: '$(AZURE_WEBAPP_NAME)'
-        package: '$(System.ArtifactsDirectory)/dist'
-        deploymentMethod: 'auto' 
+        azureResourceGroup: 'fincy-ai-rg'
+        kubernetesCluster: '$(KUBERNETES_CLUSTER_NAME)'
+        command: 'apply'
+        useConfigurationFile: true
+        configuration: '$(Build.SourcesDirectory)/k8s/deployment.yaml'
+        secretType: 'dockerRegistry'
+        containerRegistryType: 'Azure Container Registry'
+        dockerRegistryEndpoint: '$(AZURE_CONTAINER_REGISTRY)' 
