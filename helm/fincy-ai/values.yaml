@@ -1,0 +1,455 @@
+replicaCount: 3
+
+image:
+  repository: fincyairegistry.azurecr.io/fincy-ai
+  tag: latest
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "3000"
+
+# SSL/TLS Configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: fincy-ai.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: fincy-ai-tls
+      hosts:
+        - fincy-ai.example.com
+
+# Horizontal Pod Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Resource Configuration
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Network Policies
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: nginx-ingress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 169.254.0.0/16
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+
+# Enhanced Security Context
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 3000
+  fsGroup: 2000
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+  privileged: false
+  procMount: Default
+  supplementalGroups: [2000]
+
+# Monitoring and Logging
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 10s
+      metricRelabelings:
+        - action: keep
+          regex: 'container_cpu_usage_seconds_total|container_memory_usage_bytes|http_request_duration_seconds'
+    rules:
+      enabled: true
+      groups:
+        - name: fincy-ai
+          rules:
+            - alert: HighCPUUsage
+              expr: rate(container_cpu_usage_seconds_total{container!=""}[5m]) * 100 > 80
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: High CPU usage detected
+                description: Container has CPU usage above 80% for 5 minutes
+
+            - alert: HighMemoryUsage
+              expr: container_memory_usage_bytes{container!=""} / container_memory_max_usage_bytes{container!=""} * 100 > 80
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: High memory usage detected
+                description: Container has memory usage above 80% for 5 minutes
+
+            - alert: PodCrashLooping
+              expr: rate(kube_pod_container_status_restarts_total[15m]) * 60 * 5 > 0
+              for: 15m
+              labels:
+                severity: critical
+              annotations:
+                summary: Pod is crash looping
+                description: Pod is restarting frequently
+
+            - alert: NodeNotReady
+              expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: Node not ready
+                description: Node has been not ready for 5 minutes
+  grafana:
+    enabled: true
+    adminPassword: "admin123"
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: default
+            orgId: 1
+            folder: ''
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/default
+    dashboards:
+      default:
+        fincy-ai-dashboard:
+          json: |
+            {
+              "annotations": {
+                "list": []
+              },
+              "editable": true,
+              "fiscalYearStartMonth": 0,
+              "graphTooltip": 0,
+              "links": [],
+              "liveNow": false,
+              "panels": [
+                {
+                  "datasource": {
+                    "type": "prometheus",
+                    "uid": "prometheus"
+                  },
+                  "fieldConfig": {
+                    "defaults": {
+                      "color": {
+                        "mode": "palette-classic"
+                      },
+                      "custom": {
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 20,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                          "legend": false,
+                          "tooltip": false,
+                          "viz": false
+                        },
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                          "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "stacking": {
+                          "group": "A",
+                          "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                          "mode": "off"
+                        }
+                      },
+                      "mappings": [],
+                      "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                          {
+                            "color": "green",
+                            "value": null
+                          },
+                          {
+                            "color": "red",
+                            "value": 80
+                          }
+                        ]
+                      },
+                      "unit": "percent"
+                    },
+                    "overrides": []
+                  },
+                  "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 0
+                  },
+                  "id": 1,
+                  "options": {
+                    "legend": {
+                      "calcs": [],
+                      "displayMode": "list",
+                      "placement": "bottom",
+                      "showLegend": true
+                    },
+                    "tooltip": {
+                      "mode": "single",
+                      "sort": "none"
+                    }
+                  },
+                  "targets": [
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                      },
+                      "editorMode": "code",
+                      "expr": "rate(container_cpu_usage_seconds_total{namespace=\"fincy-ai\"}[5m]) * 100",
+                      "legendFormat": "{{container}}",
+                      "range": true,
+                      "refId": "A"
+                    }
+                  ],
+                  "title": "CPU Usage",
+                  "type": "timeseries"
+                },
+                {
+                  "datasource": {
+                    "type": "prometheus",
+                    "uid": "prometheus"
+                  },
+                  "fieldConfig": {
+                    "defaults": {
+                      "color": {
+                        "mode": "palette-classic"
+                      },
+                      "custom": {
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 20,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                          "legend": false,
+                          "tooltip": false,
+                          "viz": false
+                        },
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                          "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "stacking": {
+                          "group": "A",
+                          "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                          "mode": "off"
+                        }
+                      },
+                      "mappings": [],
+                      "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                          {
+                            "color": "green",
+                            "value": null
+                          },
+                          {
+                            "color": "red",
+                            "value": 80
+                          }
+                        ]
+                      },
+                      "unit": "bytes"
+                    },
+                    "overrides": []
+                  },
+                  "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 0
+                  },
+                  "id": 2,
+                  "options": {
+                    "legend": {
+                      "calcs": [],
+                      "displayMode": "list",
+                      "placement": "bottom",
+                      "showLegend": true
+                    },
+                    "tooltip": {
+                      "mode": "single",
+                      "sort": "none"
+                    }
+                  },
+                  "targets": [
+                    {
+                      "datasource": {
+                        "type": "prometheus",
+                        "uid": "prometheus"
+                      },
+                      "editorMode": "code",
+                      "expr": "container_memory_usage_bytes{namespace=\"fincy-ai\"}",
+                      "legendFormat": "{{container}}",
+                      "range": true,
+                      "refId": "A"
+                    }
+                  ],
+                  "title": "Memory Usage",
+                  "type": "timeseries"
+                }
+              ],
+              "refresh": "5s",
+              "schemaVersion": 38,
+              "style": "dark",
+              "tags": [],
+              "templating": {
+                "list": []
+              },
+              "time": {
+                "from": "now-1h",
+                "to": "now"
+              },
+              "timepicker": {},
+              "timezone": "",
+              "title": "Fincy AI Dashboard",
+              "version": 0,
+              "weekStart": ""
+            }
+
+# Backup Configuration
+backup:
+  enabled: true
+  schedule: "0 1 * * *"
+  retention: "720h"
+  storageAccount: "fincyaibackup"
+  containerName: "backups"
+  backupRetentionPolicy:
+    enabled: true
+    daily: 7
+    weekly: 4
+    monthly: 12
+  encryption:
+    enabled: true
+    keyVaultName: "fincy-ai-kv"
+    keyName: "backup-encryption-key"
+
+# Liveness and Readiness Probes
+probes:
+  liveness:
+    path: /health
+    port: 3000
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readiness:
+    path: /health
+    port: 3000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+# Environment Variables
+env:
+  - name: PORT
+    value: "3000"
+  - name: NODE_ENV
+    value: "production"
+
+# Volume Mounts
+persistence:
+  enabled: true
+  storageClass: "managed-premium"
+  size: 10Gi
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+  maxUnavailable: 1
+
+# Resource Quotas
+resourceQuota:
+  enabled: true
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    requests.storage: 20Gi
+    persistentvolumeclaims: "5"
+
+# Pod Anti-Affinity
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - fincy-ai
+          topologyKey: kubernetes.io/hostname
+
+# Enhanced Pod Security Context
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 3000
+  fsGroup: 2000
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+  supplementalGroups: [2000] 

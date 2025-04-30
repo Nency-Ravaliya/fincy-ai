@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: fincy-ai-tls
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: fincy-ai-tls
+  dnsNames:
+    - fincy-ai.example.com
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer 

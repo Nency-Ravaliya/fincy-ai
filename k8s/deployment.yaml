@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fincy-ai
+  namespace: fincy-ai-prod
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: fincy-ai
+  template:
+    metadata:
+      labels:
+        app: fincy-ai
+    spec:
+      imagePullSecrets:
+      - name: acr-auth
+      containers:
+      - name: fincy-ai
+        image: fincyairegistry.azurecr.io/fincy-ai:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fincy-ai-service
+  namespace: fincy-ai-prod
+spec:
+  selector:
+    app: fincy-ai
+  ports:
+  - port: 80
+    targetPort: 3000
+  type: LoadBalancer 
