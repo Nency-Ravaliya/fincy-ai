@@ -5,7 +5,10 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  - group: 'fincy-ai-variables'
+  - name: AZURE_SUBSCRIPTION
+    value: 'b127d0c6-3b4e-48e9-b991-dc8522af2d0f'
+  - name: AZURE_WEBAPP_NAME
+    value: 'fincy-ai'
 
 stages:
   - stage: Build
